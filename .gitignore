@@ -1,0 +1,7 @@
+vendor/
+pictures/
+dist/
+
+
+go.sum
+**/**.png
