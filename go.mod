@@ -1,4 +1,4 @@
-module github.com/wan-maoyuan/gdaldraw
+module github.com/wan-maoyuan/gdal_draw
 
 go 1.20
 

@@ -7,7 +7,7 @@ import (
 	"log"
 
 	"github.com/batchatco/go-native-netcdf/netcdf"
-	"github.com/wan-maoyuan/gdaldraw"
+	gdaldraw "github.com/wan-maoyuan/gdal_draw"
 )
 
 const NcPath = "./nc_files/t2m_2022_01_01_ERA5.nc"
