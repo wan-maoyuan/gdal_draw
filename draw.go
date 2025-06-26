@@ -51,7 +51,7 @@ func Draw3857(data *Data, colorFunc ColorFunc) error {
 		}
 	}
 
-	file, err := os.Create(data.OutFilePath)
+	file, err := os.OpenFile(data.OutFilePath, os.O_CREATE|os.O_RDWR, 0666)
 	if err != nil {
 		return fmt.Errorf("create out file: %s error: %v", data.OutFilePath, err)
 	}
@@ -91,7 +91,7 @@ func DrawDouble3857(data *DoubleData, colorFunc DounbleColorFunc) error {
 		}
 	}
 
-	file, err := os.Create(data.OutFilePath)
+	file, err := os.OpenFile(data.OutFilePath, os.O_CREATE|os.O_RDWR, 0666)
 	if err != nil {
 		return fmt.Errorf("create out file: %s error: %v", data.OutFilePath, err)
 	}
@@ -142,7 +142,7 @@ func DrawIrregular3857(data *IrregularData, colorFunc ColorFunc) error {
 		colorFunc(img, xIndex, yIndex, value)
 	}
 
-	file, err := os.Create(data.OutFilePath)
+	file, err := os.OpenFile(data.OutFilePath, os.O_CREATE|os.O_RDWR, 0666)
 	if err != nil {
 		return fmt.Errorf("create out file: %s error: %v", data.OutFilePath, err)
 	}
