@@ -31,6 +31,15 @@ func main() {
 			colorValue, 0, 0, colorValue,
 		})
 	})
+
+	data.OutFilePath = "./temp_4326.png"
+	gdaldraw.Draw4326(data, func(img *image.RGBA, x, y int, value float64) {
+		var colorValue = uint8((value - minTemp) / (maxTemp - minTemp) * 255)
+
+		img.SetRGBA(x, y, color.RGBA{
+			colorValue, 0, 0, colorValue,
+		})
+	})
 }
 
 func ReadDataFromNcFile(path string) (*gdaldraw.Data, error) {

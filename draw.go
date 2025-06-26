@@ -159,3 +159,69 @@ func DrawIrregular3857(data *IrregularData, colorFunc ColorFunc) error {
 
 	return nil
 }
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func Draw4326(data *Data, colorFunc ColorFunc) error {
+	if err := data.check(); err != nil {
+		return err
+	}
+
+	img := image.NewRGBA(image.Rect(0, 0, len(data.LonList), len(data.LatList)))
+	for yIndex := range data.LatList {
+		for xIndex := range data.LonList {
+			value := data.ValueList[yIndex][xIndex]
+			colorFunc(img, xIndex, yIndex, value)
+		}
+	}
+
+	file, err := os.OpenFile(data.OutFilePath, os.O_CREATE|os.O_RDWR, 0666)
+	if err != nil {
+		return fmt.Errorf("create out file: %s error: %v", data.OutFilePath, err)
+	}
+	defer file.Close()
+
+	fileWriter := bufio.NewWriter(file)
+	if err := png.Encode(fileWriter, img); err != nil {
+		return fmt.Errorf("png encode data to file error: %v", err)
+	}
+
+	if err := fileWriter.Flush(); err != nil {
+		return fmt.Errorf("flush data to out file error: %v", err)
+	}
+
+	return nil
+}
+
+func DrawDouble4326(data *DoubleData, colorFunc DounbleColorFunc) error {
+	if err := data.check(); err != nil {
+		return err
+	}
+
+	img := image.NewRGBA(image.Rect(0, 0, len(data.LonList), len(data.LatList)))
+	for yIndex := range data.LatList {
+		for xIndex := range data.LonList {
+			value1 := data.Value1List[yIndex][xIndex]
+			value2 := data.Value2List[yIndex][xIndex]
+
+			colorFunc(img, xIndex, yIndex, value1, value2)
+		}
+	}
+
+	file, err := os.OpenFile(data.OutFilePath, os.O_CREATE|os.O_RDWR, 0666)
+	if err != nil {
+		return fmt.Errorf("create out file: %s error: %v", data.OutFilePath, err)
+	}
+	defer file.Close()
+
+	fileWriter := bufio.NewWriter(file)
+	if err := png.Encode(fileWriter, img); err != nil {
+		return fmt.Errorf("png encode data to file error: %v", err)
+	}
+
+	if err := fileWriter.Flush(); err != nil {
+		return fmt.Errorf("flush data to out file error: %v", err)
+	}
+
+	return nil
+}
