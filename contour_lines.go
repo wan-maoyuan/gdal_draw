@@ -175,6 +175,10 @@ func interpolate(list []float64, idx float64) float64 {
 
 // ====== 6. 主入口 ======
 func DrawContourLines(data *ContourLinesData) error {
+	if err := data.check(); err != nil {
+		return fmt.Errorf("check data error: %v", err)
+	}
+
 	contourLines, err := generateContourLinesWithContourMap(data)
 	if err != nil {
 		return fmt.Errorf("generate contour lines error: %v", err)
