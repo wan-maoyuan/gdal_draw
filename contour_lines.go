@@ -116,6 +116,7 @@ type geojsonFeature struct {
 	Geometry   geojsonGeometry `json:"geometry"`
 	Properties map[string]any  `json:"properties"`
 }
+
 type geojsonGeometry struct {
 	Type        string      `json:"type"`
 	Coordinates [][]float64 `json:"coordinates"`
