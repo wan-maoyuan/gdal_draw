@@ -143,9 +143,9 @@ func ReadContourLineDataFromNcFile(path string) (*gdaldraw.ContourLinesData, err
 	}
 	lonList := lonVariable.Values.([]float64)
 
-	tempVariable, err := group.GetVariable("sp")
+	tempVariable, err := group.GetVariable("msl")
 	if err != nil {
-		return nil, fmt.Errorf("get variable t2m: %v", err)
+		return nil, fmt.Errorf("get variable msl: %v", err)
 	}
 	tempList := tempVariable.Values.([][][]float32)[0]
 
@@ -175,6 +175,8 @@ func ReadContourLineDataFromNcFile(path string) (*gdaldraw.ContourLinesData, err
 		LonList:     newLon,
 		ValueList:   valueList,
 		Step:        400.,
+		MinValue:    96000,
+		MaxValue:    110000,
 		OutFilePath: "test.json",
 	}, nil
 }

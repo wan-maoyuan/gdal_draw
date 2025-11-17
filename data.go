@@ -138,6 +138,8 @@ type ContourLinesData struct {
 	LonList     []float64   // 经度范围：-180 到 180
 	ValueList   [][]float64 // 值列表，二维数组，第一维是纬度，第二维是经度，值列表的值为等值线值
 	Step        float64     // 等值线间距
+	MinValue    float64     // 最小值
+	MaxValue    float64     // 最大值
 	OutFilePath string      // 输出文件路径
 }
 
