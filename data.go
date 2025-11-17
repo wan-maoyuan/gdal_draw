@@ -137,7 +137,6 @@ type ContourLinesData struct {
 	LatList     []float64   // 纬度范围： 90 到 -90
 	LonList     []float64   // 经度范围：-180 到 180
 	ValueList   [][]float64 // 值列表，二维数组，第一维是纬度，第二维是经度，值列表的值为等值线值
-	Accuracy    float64     // 地图的精度
 	Step        float64     // 等值线间距
 	OutFilePath string      // 输出文件路径
 }
@@ -161,10 +160,6 @@ func (data *ContourLinesData) check() error {
 
 	if len(data.LonList) != len(data.ValueList[0]) {
 		return fmt.Errorf("value second slice length not equal lon slice length")
-	}
-
-	if data.Accuracy <= 0 {
-		return fmt.Errorf("lat lon accuracy is invalid")
 	}
 
 	if data.OutFilePath == "" {

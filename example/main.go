@@ -56,7 +56,7 @@ func drawTemperatureMaps() {
 }
 
 func generateContourLines() {
-	data, err := ReadContourLineDataFromNcFile(NcPath)
+	data, err := ReadContourLineDataFromNcFile("/data2/nc-files/ec_0p25/2025/11/2025-11-01/oper-00/ec_0p25_oper_2025110100_0h.nc")
 	if err != nil {
 		log.Fatalf("read nc file data: %v", err)
 	}
@@ -131,19 +131,19 @@ func ReadContourLineDataFromNcFile(path string) (*gdaldraw.ContourLinesData, err
 	}
 	defer group.Close()
 
-	latVariable, err := group.GetVariable("latitude")
+	latVariable, err := group.GetVariable("lat")
 	if err != nil {
 		return nil, fmt.Errorf("get variable latitude: %v", err)
 	}
-	latList := latVariable.Values.([]float32)
+	latList := latVariable.Values.([]float64)
 
-	lonVariable, err := group.GetVariable("longitude")
+	lonVariable, err := group.GetVariable("lon")
 	if err != nil {
 		return nil, fmt.Errorf("get variable longitude: %v", err)
 	}
-	lonList := lonVariable.Values.([]float32)
+	lonList := lonVariable.Values.([]float64)
 
-	tempVariable, err := group.GetVariable("t2m")
+	tempVariable, err := group.GetVariable("sp")
 	if err != nil {
 		return nil, fmt.Errorf("get variable t2m: %v", err)
 	}
@@ -174,8 +174,7 @@ func ReadContourLineDataFromNcFile(path string) (*gdaldraw.ContourLinesData, err
 		LatList:     newLat,
 		LonList:     newLon,
 		ValueList:   valueList,
-		Accuracy:    0.25,
-		Step:        10.,
+		Step:        400.,
 		OutFilePath: "test.json",
 	}, nil
 }
