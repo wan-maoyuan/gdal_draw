@@ -50,35 +50,10 @@ func generateContourLinesWithContourMap(data *ContourLinesData) ([]ContourLine, 
 	rows := len(grid)
 	cols := len(grid[0])
 
-	// 打印数据统计信息用于调试
-	fmt.Printf("数据范围: rows=%d, cols=%d\n", rows, cols)
-	fmt.Printf("纬度范围: [%.2f, %.2f]\n", latList[0], latList[len(latList)-1])
-	fmt.Printf("经度范围: [%.2f, %.2f]\n", lonList[0], lonList[len(lonList)-1])
-
 	// 计算数值范围，并检查是否有异常值
 	min, max := grid[0][0], grid[0][0]
 	var validCount, nanCount, infCount int
 	var sum float64
-
-	// 采样一些点的值用于调试
-	fmt.Println("采样数据点（纬度, 经度, 值）:")
-	samplePoints := [][2]int{
-		{rows / 4, cols / 4},         // 第一象限
-		{rows / 4, 3 * cols / 4},     // 第二象限
-		{3 * rows / 4, cols / 4},     // 第三象限
-		{3 * rows / 4, 3 * cols / 4}, // 第四象限
-		{rows / 2, cols / 2},         // 中心点（赤道）
-		{0, cols / 2},                // 北极点
-		{rows - 1, cols / 2},         // 南极点
-	}
-	for _, pt := range samplePoints {
-		if pt[0] < rows && pt[1] < cols {
-			lat := latList[pt[0]]
-			lon := lonList[pt[1]]
-			val := grid[pt[0]][pt[1]]
-			fmt.Printf("  (%.2f, %.2f) = %.2f\n", lat, lon, val)
-		}
-	}
 
 	for i := range grid {
 		for j := range grid[i] {
@@ -102,14 +77,12 @@ func generateContourLinesWithContourMap(data *ContourLinesData) ([]ContourLine, 
 			}
 		}
 	}
-	avg := sum / float64(validCount)
-	fmt.Printf("数值统计: min=%.2f, max=%.2f, avg=%.2f, valid=%d, NaN=%d, Inf=%d\n",
-		min, max, avg, validCount, nanCount, infCount)
 
 	flat := make([]float64, 0, rows*cols)
 	for i := 0; i < rows; i++ {
 		flat = append(flat, grid[i]...)
 	}
+
 	cm := contourmap.FromFloat64s(cols, rows, flat)
 
 	// 计算等值线值，使用 MinValue 和 MaxValue 限制范围
@@ -123,17 +96,12 @@ func generateContourLinesWithContourMap(data *ContourLinesData) ([]ContourLine, 
 	if data.MinValue > 0 && data.MaxValue > 0 && data.MaxValue > data.MinValue {
 		effectiveMin = data.MinValue
 		effectiveMax = data.MaxValue
-		fmt.Printf("使用指定的值范围: [%.2f, %.2f] (数据实际范围: [%.2f, %.2f])\n",
-			effectiveMin, effectiveMax, min, max)
-	} else {
-		fmt.Printf("使用数据实际范围: [%.2f, %.2f]\n", min, max)
 	}
 
 	// 生成等值线值列表
 	for v := effectiveMin; v <= effectiveMax; v += data.Step {
 		values = append(values, v)
 	}
-	fmt.Printf("将生成 %d 条等值线，步长=%.2f\n", len(values), data.Step)
 
 	var result []ContourLine
 	var totalPaths, filteredByLength, filteredByMinPoints, filteredByValue, crossBoundary int
@@ -171,25 +139,25 @@ func generateContourLinesWithContourMap(data *ContourLinesData) ([]ContourLine, 
 			}
 
 			for _, subLine := range splitLines {
-				// 使用自适应的平滑窗口
-				windowSize := 3
-				if len(subLine) > 20 {
-					windowSize = 5
-				}
-				smooth := smoothContourLine(subLine, windowSize)
+				// 先进行高斯平滑
+				gaussianSmooth := gaussianSmoothLine(subLine, 7, 1.5)
+
 				// 抽稀：只保留足够长的等值线
-				if len(smooth) >= 8 { // 增加要求
-					// 简化等值线，减少点数
-					simplified := simplifyContourLine(smooth, 0.8) // 进一步增大tolerance
+				if len(gaussianSmooth) >= 10 {
+					// 使用较小的tolerance进行简化，保留更多细节
+					simplified := simplifyContourLine(gaussianSmooth, 0.3)
 
 					// 过滤掉太短的等值线（基于地理距离）
 					if len(simplified) >= 5 {
 						lineLength := calculateLineLength(simplified)
 						// 只保留长度超过2度（约222km）的等值线
 						if lineLength > 2.0 {
+							// 使用 Catmull-Rom 样条进行最终平滑
+							finalSmooth := catmullRomSpline(simplified, 5)
+
 							result = append(result, ContourLine{
 								Value:  v,
-								Points: simplified,
+								Points: finalSmooth,
 							})
 
 							// 统计长度分布
@@ -204,12 +172,6 @@ func generateContourLinesWithContourMap(data *ContourLinesData) ([]ContourLine, 
 					}
 				}
 			}
-		}
-	}
-
-	for i := 0; i < 10; i++ {
-		if lengthDistribution[i] > 0 {
-			fmt.Printf("  %d-%d: %d条\n", i*10, (i+1)*10, lengthDistribution[i])
 		}
 	}
 
@@ -272,23 +234,96 @@ func splitCrossBoundaryLine(line []ContourPoint, lonList []float64) [][]ContourP
 }
 
 // ====== 3. 等值线平滑 ======
-func smoothContourLine(line []ContourPoint, window int) []ContourPoint {
-	if len(line) <= window {
+// 高斯平滑 - 使用高斯核进行加权平滑
+func gaussianSmoothLine(line []ContourPoint, windowSize int, sigma float64) []ContourPoint {
+	if len(line) <= 3 {
 		return line
 	}
-	var result []ContourPoint
-	w := window
+
+	// 生成高斯核
+	halfWindow := windowSize / 2
+	kernel := make([]float64, windowSize)
+	sum := 0.0
+	for i := 0; i < windowSize; i++ {
+		x := float64(i - halfWindow)
+		kernel[i] = exp(-(x * x) / (2 * sigma * sigma))
+		sum += kernel[i]
+	}
+	// 归一化
+	for i := 0; i < windowSize; i++ {
+		kernel[i] /= sum
+	}
+
+	result := make([]ContourPoint, len(line))
 	for i := 0; i < len(line); i++ {
-		sumX, sumY, count := 0.0, 0.0, 0
-		for j := i - w/2; j <= i+w/2; j++ {
-			if j >= 0 && j < len(line) {
-				sumX += line[j].X
-				sumY += line[j].Y
-				count++
+		sumX, sumY, weightSum := 0.0, 0.0, 0.0
+		for j := 0; j < windowSize; j++ {
+			idx := i - halfWindow + j
+			if idx >= 0 && idx < len(line) {
+				weight := kernel[j]
+				sumX += line[idx].X * weight
+				sumY += line[idx].Y * weight
+				weightSum += weight
 			}
 		}
-		result = append(result, ContourPoint{X: sumX / float64(count), Y: sumY / float64(count)})
+		result[i] = ContourPoint{
+			X: sumX / weightSum,
+			Y: sumY / weightSum,
+		}
 	}
+	return result
+}
+
+// Catmull-Rom 样条插值 - 生成平滑的曲线
+func catmullRomSpline(line []ContourPoint, segmentsPerPoint int) []ContourPoint {
+	if len(line) < 4 {
+		return line
+	}
+
+	var result []ContourPoint
+
+	// 对于每对相邻的点，使用 Catmull-Rom 插值
+	for i := 0; i < len(line)-1; i++ {
+		var p0, p1, p2, p3 ContourPoint
+
+		// 选择控制点
+		if i == 0 {
+			p0 = line[0]
+		} else {
+			p0 = line[i-1]
+		}
+		p1 = line[i]
+		p2 = line[i+1]
+		if i == len(line)-2 {
+			p3 = line[len(line)-1]
+		} else {
+			p3 = line[i+2]
+		}
+
+		// 在 p1 和 p2 之间插值
+		for j := 0; j < segmentsPerPoint; j++ {
+			t := float64(j) / float64(segmentsPerPoint)
+			t2 := t * t
+			t3 := t2 * t
+
+			// Catmull-Rom 公式
+			x := 0.5 * ((2 * p1.X) +
+				(-p0.X+p2.X)*t +
+				(2*p0.X-5*p1.X+4*p2.X-p3.X)*t2 +
+				(-p0.X+3*p1.X-3*p2.X+p3.X)*t3)
+
+			y := 0.5 * ((2 * p1.Y) +
+				(-p0.Y+p2.Y)*t +
+				(2*p0.Y-5*p1.Y+4*p2.Y-p3.Y)*t2 +
+				(-p0.Y+3*p1.Y-3*p2.Y+p3.Y)*t3)
+
+			result = append(result, ContourPoint{X: x, Y: y})
+		}
+	}
+
+	// 添加最后一个点
+	result = append(result, line[len(line)-1])
+
 	return result
 }
 
@@ -378,6 +413,28 @@ func sqrt(x float64) float64 {
 		z = (z + x/z) / 2
 	}
 	return z
+}
+
+// exp 函数 - 使用泰勒级数展开
+func exp(x float64) float64 {
+	if x < -10 {
+		return 0
+	}
+	if x > 10 {
+		return 22026.465794806718 // e^10
+	}
+
+	// 泰勒级数: e^x = 1 + x + x^2/2! + x^3/3! + ...
+	result := 1.0
+	term := 1.0
+	for i := 1; i < 20; i++ {
+		term *= x / float64(i)
+		result += term
+		if abs(term) < 1e-10 {
+			break
+		}
+	}
+	return result
 }
 
 // ====== 4. GeoJSON 输出 ======
